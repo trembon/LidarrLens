@@ -38,7 +38,7 @@ public sealed class SqliteStore(string dataDirectory) : ILidarrLensStore
         foreach (var finding in findings)
         {
             var prior = await FindByFingerprintAsync(connection, transaction, finding.Fingerprint, cancellationToken);
-            var effective = prior is not null && prior.Status is FindingStatus.Ignored or FindingStatus.Rejected or FindingStatus.Submitted
+            var effective = prior is not null && prior.Status is FindingStatus.Ignored or FindingStatus.Rejected or FindingStatus.Submitted or FindingStatus.Waiting
                 ? finding with { Status = prior.Status }
                 : finding;
             var command = connection.CreateCommand(); command.Transaction = transaction;
@@ -49,7 +49,7 @@ public sealed class SqliteStore(string dataDirectory) : ILidarrLensStore
         if (scan.Status == "completed")
         {
             var fingerprints = findings.Select(x => x.Fingerprint).ToHashSet(StringComparer.Ordinal);
-            var old = connection.CreateCommand(); old.Transaction = transaction; old.CommandText = "SELECT id,payload FROM findings WHERE scan_id<>$scan AND status IN ('Pending','Accepted')"; old.Parameters.AddWithValue("$scan", scan.Id);
+            var old = connection.CreateCommand(); old.Transaction = transaction; old.CommandText = "SELECT id,payload FROM findings WHERE scan_id<>$scan AND status IN ('Pending','Accepted','Waiting')"; old.Parameters.AddWithValue("$scan", scan.Id);
             var stale = new List<AuditFinding>();
             await using (var reader = await old.ExecuteReaderAsync(cancellationToken))
                 while (await reader.ReadAsync(cancellationToken)) { var item = JsonSerializer.Deserialize<AuditFinding>(reader.GetString(1)); if (item is not null && scannedArtistMusicBrainzIds.Contains(item.ArtistMusicBrainzId) && !fingerprints.Contains(item.Fingerprint)) stale.Add(item); }

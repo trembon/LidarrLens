@@ -25,6 +25,13 @@ public static partial class Normalization
         return Regex.Replace(normalized, "\\s+", " ").Trim();
     }
 
+    public static string ReleaseTitle(string? value)
+    {
+        var normalized = Text(value);
+        normalized = Featuring().Replace(normalized, string.Empty);
+        return Regex.Replace(normalized, "\\s+", " ").Trim();
+    }
+
     [GeneratedRegex("[^\\p{L}\\p{N}]+", RegexOptions.Compiled)]
     private static partial Regex NonWord();
 

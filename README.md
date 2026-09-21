@@ -19,6 +19,8 @@ Use the Artists page to control scan scope. The first artist sync selects all ar
 
 Deezer requires no API key. It is used as optional evidence and discovery data. If it is unavailable, MusicBrainz/Lidarr scanning still works.
 
+When Deezer provides cover art, findings expose the highest-resolution artwork URL available (falling back to a smaller Deezer image when needed). The URL is evidence and a convenience link only; cover art must still be downloaded, verified against the exact release, and uploaded manually through MusicBrainz’s Cover Art tab.
+
 MusicBrainz scans default to high-level mode (`MUSICBRAINZ_SCAN_MODE=high-level`), which fetches release groups and assumes a matched group's tracklist is acceptable. This avoids the per-group `/release` requests used for track, recording, barcode, and edition checks. Set `MUSICBRAINZ_SCAN_MODE=detailed` when those checks are needed.
 
 ## Local development
@@ -65,4 +67,4 @@ Set `SCAN_INTERVAL_MINUTES` to a positive number to enable optional recurring sc
 
 ## Statuses
 
-`pending`, `accepted`, `rejected`, `submitted`, `ignored`, and `resolved`. `ignored` means “won’t do.” `resolved` is assigned when a later scan finds the corresponding MusicBrainz entity.
+`pending`, `accepted`, `rejected`, `submitted`, `ignored`, `waiting`, and `resolved`. `waiting` hides an item from the default work queue while MusicBrainz or another service catches up; it remains available through the status filter. `ignored` means “won’t do.” `resolved` is assigned when a later scan finds the corresponding MusicBrainz entity.

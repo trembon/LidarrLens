@@ -10,21 +10,21 @@ public sealed class MatchingEngine : IMatchingEngine
     {
         var findings = new List<AuditFinding>();
         var lidarrGroupIds = lidarrAlbums.Where(x => !string.IsNullOrWhiteSpace(x.MusicBrainzReleaseGroupId)).Select(x => x.MusicBrainzReleaseGroupId!).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var lidarrTitles = lidarrAlbums.Select(x => Normalization.Text(x.Title)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var lidarrTitles = lidarrAlbums.Select(x => Normalization.ReleaseTitle(x.Title)).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (var group in groups)
         {
             if (lidarrGroupIds.Contains(group.Id)) continue;
-            var matchingTitle = lidarrTitles.Contains(Normalization.Text(group.Title));
+            var matchingTitle = lidarrTitles.Contains(Normalization.ReleaseTitle(group.Title));
             findings.Add(Create(artist, scanId, matchingTitle ? FindingType.NotInLidarr : FindingType.MissingReleaseGroup,
                 "Review the MusicBrainz release group and add or refresh it in Lidarr.", ConfidenceLevel.High,
                 [$"MusicBrainz release group: {group.Id}", matchingTitle ? "Title matches a Lidarr album without the same MusicBrainz ID." : "No matching Lidarr release-group ID or title was found."],
-                [group.Url], [], [], BuildCopyReady(artist, group, group.Releases.FirstOrDefault(), null), "musicbrainz", group.Id, group.Url));
+                [group.Url, .. group.Releases.Select(x => $"https://musicbrainz.org/release/{x.Id}")], [], [], BuildCopyReady(artist, group, group.Releases.FirstOrDefault(), null), "musicbrainz", group.Id, group.Url));
         }
 
         foreach (var source in sourceReleases)
         {
-            var matchingGroup = groups.FirstOrDefault(g => Normalization.Text(g.Title) == Normalization.Text(source.Title));
+            var matchingGroup = groups.FirstOrDefault(g => Normalization.ReleaseTitle(g.Title) == Normalization.ReleaseTitle(source.Title));
             if (matchingGroup is null)
             {
                 findings.Add(Create(artist, scanId, FindingType.MissingReleaseGroup,
@@ -69,7 +69,7 @@ public sealed class MatchingEngine : IMatchingEngine
     {
         var fingerprint = Fingerprint(artist.MusicBrainzId, type.ToString(), sourceId, copy?.Title, string.Join("|", evidence));
         var now = DateTimeOffset.UtcNow;
-        return new AuditFinding(Guid.NewGuid().ToString("N"), fingerprint, artist.Name, artist.MusicBrainzId, artist.MusicBrainzUrl, source, sourceId, sourceUrl, type, action, confidence, evidence, existing.ToList(), missing, warnings, copy, FindingStatus.Pending, now, now, scanId);
+        return new AuditFinding(Guid.NewGuid().ToString("N"), fingerprint, artist.Name, artist.MusicBrainzId, artist.MusicBrainzUrl, source, sourceId, sourceUrl, type, action, confidence, evidence, existing.ToList(), missing, warnings, copy, FindingStatus.Pending, now, now, scanId, MusicBrainzLinkBuilder.Build(artist, existing, copy));
     }
 
     private static string Fingerprint(params string?[] values)
@@ -86,8 +86,9 @@ public sealed class MatchingEngine : IMatchingEngine
         var title = release?.Title ?? source?.Title ?? group?.Title ?? "";
         var tracks = (release?.Tracks.Select((x, i) => $"{i + 1}. {x.Title}{(x.DurationMilliseconds.HasValue ? $" ({TimeSpan.FromMilliseconds(x.DurationMilliseconds.Value):m\\:ss})" : "")}") ?? source?.Tracks.Select((x, i) => $"{i + 1}. {x.Title}{(x.DurationSeconds.HasValue ? $" ({TimeSpan.FromSeconds(x.DurationSeconds.Value):m\\:ss})" : "")}") ?? []).ToList();
         var urls = new[] { source?.Url, release is null ? null : $"https://musicbrainz.org/release/{release.Id}", group?.Url }.Where(x => !string.IsNullOrWhiteSpace(x)).Cast<string>().Distinct().ToList();
-        var editor = release is null ? "https://musicbrainz.org/release/add" : $"https://musicbrainz.org/release/{release.Id}";
+        var editor = release is null ? "https://musicbrainz.org/release/add" : $"https://musicbrainz.org/release/{release.Id}/edit";
         var note = $"LidarrLens audit for {artist.Name} / {title}. Evidence: {string.Join(", ", urls)}. Please verify all fields manually before submitting.";
-        return new CopyReadyRelease(title, group?.PrimaryType ?? "album", (release?.Date ?? source?.ReleaseDate)?.ToString("yyyy-MM-dd"), release?.Country ?? source?.Country, release?.Label ?? source?.Label, release?.CatalogNumber ?? source?.CatalogNumber, release?.Barcode ?? source?.Barcode, release?.Format ?? source?.Format, null, urls, tracks, note, editor);
+        return new CopyReadyRelease(title, group?.PrimaryType ?? "album", (release?.Date ?? source?.ReleaseDate)?.ToString("yyyy-MM-dd"), release?.Country ?? source?.Country, release?.Label ?? source?.Label, release?.CatalogNumber ?? source?.CatalogNumber, release?.Barcode ?? source?.Barcode, release?.Format ?? source?.Format, null, urls, tracks, note, editor, source?.ArtworkUrl);
     }
+
 }

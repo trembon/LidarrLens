@@ -40,7 +40,8 @@ public sealed class DeezerAdapter(HttpClient httpClient, IResponseCache cache, s
     private static SourceRelease ParseAlbum(JsonElement value, string artistId)
     {
         var tracks = value.TryGetProperty("tracks", out var wrapper) && wrapper.TryGetProperty("data", out var data) ? data.EnumerateArray().Select(x => new SourceTrack(GetString(x, "title") ?? "Untitled", x.TryGetProperty("duration", out var duration) ? duration.GetInt32() : null, GetString(x, "isrc"))).ToList() : [];
-        return new SourceRelease("Deezer", GetString(value, "id") ?? Guid.NewGuid().ToString(), GetString(value, "title") ?? "Untitled", GetString(value, "link") ?? "https://www.deezer.com", artistId, DateOnly.TryParse(GetString(value, "release_date"), out var date) ? date : null, null, null, null, GetString(value, "upc"), "Digital", tracks);
+        var artworkUrl = GetString(value, "cover_xl") ?? GetString(value, "cover_big");
+        return new SourceRelease("Deezer", GetString(value, "id") ?? Guid.NewGuid().ToString(), GetString(value, "title") ?? "Untitled", GetString(value, "link") ?? "https://www.deezer.com", artistId, DateOnly.TryParse(GetString(value, "release_date"), out var date) ? date : null, null, null, null, GetString(value, "upc"), "Digital", tracks, artworkUrl);
     }
 
     private static string? GetString(JsonElement value, string property) => value.ValueKind == JsonValueKind.Object && value.TryGetProperty(property, out var p) && p.ValueKind is JsonValueKind.String or JsonValueKind.Number ? p.ToString() : null;

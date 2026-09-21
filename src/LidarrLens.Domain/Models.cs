@@ -1,6 +1,6 @@
 namespace LidarrLens.Domain;
 
-public enum FindingStatus { Pending, Accepted, Rejected, Submitted, Ignored, Resolved }
+public enum FindingStatus { Pending, Accepted, Rejected, Submitted, Ignored, Waiting, Resolved }
 public enum FindingType { MissingReleaseGroup, MissingRelease, IncompleteTracklist, MissingRecording, NotInLidarr, LikelyDuplicate }
 public enum ConfidenceLevel { Low, Medium, High }
 
@@ -65,7 +65,8 @@ public sealed record SourceRelease(
     string? CatalogNumber,
     string? Barcode,
     string? Format,
-    IReadOnlyList<SourceTrack> Tracks);
+    IReadOnlyList<SourceTrack> Tracks,
+    string? ArtworkUrl = null);
 
 public sealed record CopyReadyRelease(
     string Title,
@@ -80,7 +81,10 @@ public sealed record CopyReadyRelease(
     IReadOnlyList<string> SourceUrls,
     IReadOnlyList<string> Tracklist,
     string EditNote,
-    string? MusicBrainzEditorUrl);
+    string? MusicBrainzEditorUrl,
+    string? ArtworkUrl = null);
+
+public sealed record MusicBrainzLink(string Label, string Url);
 
 public sealed record AuditFinding(
     string Id,
@@ -102,7 +106,8 @@ public sealed record AuditFinding(
     FindingStatus Status,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    string? ScanId = null);
+    string? ScanId = null,
+    IReadOnlyList<MusicBrainzLink>? MusicBrainzLinks = null);
 
 public sealed record ScanRun(
     string Id,

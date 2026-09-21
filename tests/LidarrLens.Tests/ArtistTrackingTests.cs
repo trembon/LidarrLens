@@ -77,6 +77,26 @@ public sealed class ArtistTrackingTests
         Assert.Equal(FindingStatus.Pending, findings.Single(x => x.ArtistMusicBrainzId == "mb-untracked").Status);
     }
 
+    [Fact]
+    public async Task Waiting_findings_survive_rescan_and_resolve_when_the_finding_disappears()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "lidarrlens-tests", Guid.NewGuid().ToString("N"));
+        var store = new SqliteStore(directory);
+        await store.InitializeAsync(CancellationToken.None);
+        var waiting = Finding("waiting", "mb-waiting") with { Status = FindingStatus.Waiting };
+
+        await store.SaveScanAsync(new ScanRun("first", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, "completed", 1, 1), [waiting], new HashSet<string>(["mb-waiting"]), CancellationToken.None);
+        await store.SaveScanAsync(new ScanRun("second", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, "completed", 1, 1), [waiting], new HashSet<string>(["mb-waiting"]), CancellationToken.None);
+
+        var afterRescan = await store.GetFindingsAsync("Waiting", null, CancellationToken.None);
+        Assert.Single(afterRescan);
+
+        await store.SaveScanAsync(new ScanRun("third", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, "completed", 1, 0), [], new HashSet<string>(["mb-waiting"]), CancellationToken.None);
+
+        var afterResolution = await store.GetFindingsAsync(null, null, CancellationToken.None);
+        Assert.Equal(FindingStatus.Resolved, Assert.Single(afterResolution).Status);
+    }
+
     private static AuditFinding Finding(string id, string artistMusicBrainzId)
     {
         var now = DateTimeOffset.UtcNow;
