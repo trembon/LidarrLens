@@ -1,0 +1,20 @@
+[
+  {
+    "id": "fixture-missing-release-group",
+    "fingerprint": "fixture",
+    "artistName": "Example Artist",
+    "artistMusicBrainzId": "00000000-0000-0000-0000-000000000001",
+    "artistMusicBrainzUrl": "https://musicbrainz.org/artist/00000000-0000-0000-0000-000000000001",
+    "sourceName": "Deezer",
+    "sourceId": "fixture-album",
+    "sourceUrl": "https://www.deezer.com/album/fixture-album",
+    "type": "MissingReleaseGroup",
+    "suggestedAction": "Search MusicBrainz for the release group before creating anything.",
+    "confidence": "Medium",
+    "evidence": ["Deezer title matches artist context but no MusicBrainz release group title matched."],
+    "existingMusicBrainzEntities": [],
+    "missingFields": ["country", "label", "format"],
+    "duplicateWarnings": [],
+    "status": "Pending"
+  }
+]

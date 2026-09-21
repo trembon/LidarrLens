@@ -1,0 +1,15 @@
+@inherits LayoutComponentBase
+
+<div class="shell">
+    <aside class="sidebar">
+        <a class="brand" href="/"><span class="brand-mark">L</span><span>LidarrLens</span></a>
+        <nav>
+            <NavLink href="/" Match="NavLinkMatch.All">Dashboard</NavLink>
+            <NavLink href="/queue">Work queue</NavLink>
+            <NavLink href="/scans">Scan history</NavLink>
+            <NavLink href="/settings">Settings</NavLink>
+        </nav>
+        <p class="sidebar-note">Read-only audit tool.<br />MusicBrainz edits remain manual.</p>
+    </aside>
+    <main class="content">@Body</main>
+</div>

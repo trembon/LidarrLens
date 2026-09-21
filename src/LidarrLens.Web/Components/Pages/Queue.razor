@@ -1,0 +1,11 @@
+@page "/queue"
+@inject IScanService Scans
+@rendermode InteractiveServer
+
+<PageTitle>Work queue · LidarrLens</PageTitle>
+<div class="page-head compact"><div><p class="eyebrow">Review queue</p><h1>Findings</h1><p class="lede">Search, inspect, and mark items as accepted, ignored, submitted, or resolved.</p></div></div>
+<div class="toolbar"><input placeholder="Search artist, title, or source" @bind="query" @bind:event="oninput" /><select @bind="status"><option value="">All statuses</option>@foreach (var item in Enum.GetValues<FindingStatus>()) { <option value="@item">@item</option> }</select><button class="button" @onclick="Load">Refresh</button></div>
+@if (findings.Count == 0) { <div class="empty">No findings match the current filters. Start a scan from the dashboard.</div> }
+else { <div class="queue">@foreach (var finding in findings) { <article class="queue-row"><div class="queue-main"><div class="row-title"><a href="/findings/@finding.Id">@(finding.CopyReady?.Title ?? finding.Type.ToString())</a><span class="badge @finding.Status.ToString().ToLowerInvariant()">@finding.Status</span></div><p>@finding.ArtistName · @finding.SourceName · @finding.Confidence confidence</p><small>@finding.SuggestedAction</small></div><div class="queue-actions"><button @onclick="() => SetStatus(finding, FindingStatus.Accepted)">Accept</button><button @onclick="() => SetStatus(finding, FindingStatus.Ignored)">Won’t do</button></div></article> }</div> }
+
+@code { private List<AuditFinding> findings = []; private string? query; private string? status; protected override Task OnInitializedAsync() => Load(); private async Task Load() { findings = (await Scans.GetFindingsAsync(string.IsNullOrWhiteSpace(status) ? null : status, query, CancellationToken.None)).ToList(); } private async Task SetStatus(AuditFinding finding, FindingStatus next) { await Scans.UpdateStatusAsync(finding.Id, next, CancellationToken.None); await Load(); } }

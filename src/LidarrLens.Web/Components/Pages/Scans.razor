@@ -1,0 +1,5 @@
+@page "/scans"
+@inject ILidarrLensStore Store
+@rendermode InteractiveServer
+<PageTitle>Scan history · LidarrLens</PageTitle><p class="eyebrow">History</p><h1>Scan history</h1><div class="panel"><table><thead><tr><th>Started</th><th>Status</th><th>Artists</th><th>Findings</th><th>Exports</th></tr></thead><tbody>@foreach (var scan in scans) { <tr><td>@scan.StartedAt.ToLocalTime().ToString("g")</td><td><span class="badge">@scan.Status</span></td><td>@scan.ArtistsScanned</td><td>@scan.FindingsCreated</td><td><a href="/api/exports/@scan.Id/html">HTML</a> · <a href="/api/exports/@scan.Id/json">JSON</a> · <a href="/api/exports/@scan.Id/csv">CSV</a></td></tr> }</tbody></table></div>
+@code { private List<ScanRun> scans = []; protected override async Task OnInitializedAsync() => scans = (await Store.GetScansAsync(CancellationToken.None)).ToList(); }

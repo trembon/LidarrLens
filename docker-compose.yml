@@ -1,0 +1,14 @@
+services:
+  lidarr-lens:
+    build: .
+    container_name: lidarr-lens
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - lidarrlens-data:/data
+    restart: unless-stopped
+
+volumes:
+  lidarrlens-data:

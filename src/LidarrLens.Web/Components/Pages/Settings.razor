@@ -1,0 +1,5 @@
+@page "/settings"
+@inject ILidarrClient Lidarr
+@rendermode InteractiveServer
+<PageTitle>Settings · LidarrLens</PageTitle><p class="eyebrow">Configuration</p><h1>Settings</h1><div class="panel"><h2>Connected services</h2><p>Lidarr URL and API key are supplied through environment variables. Deezer uses its public catalog and does not require a key.</p><button class="button" @onclick="Test" disabled="@testing">@(testing ? "Testing…" : "Test Lidarr connection")</button>@if (message is not null) { <p class="notice">@message</p> }</div><div class="panel"><h2>Environment</h2><pre>LIDARR_URL<br />LIDARR_API_KEY<br />MUSICBRAINZ_USER_AGENT<br />MUSICBRAINZ_SCAN_MODE<br />DATA_DIRECTORY</pre><p>Use <code>high-level</code> to compare release groups only, or <code>detailed</code> to inspect tracks, recordings, and editions.</p></div>
+@code { private bool testing; private string? message; private async Task Test() { testing = true; try { message = await Lidarr.TestConnectionAsync(CancellationToken.None) ? "Lidarr connection succeeded." : "Lidarr returned an unsuccessful response."; } catch (Exception ex) { message = ex.Message; } finally { testing = false; } } }

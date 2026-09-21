@@ -1,0 +1,2 @@
+<div class="copy-field"><label>@Label</label><textarea readonly @bind="Value"></textarea><button @onclick="Copy">Copy</button></div>
+@code { [Parameter, EditorRequired] public string Label { get; set; } = ""; [Parameter] public string? Value { get; set; } private async Task Copy() => await Js.InvokeVoidAsync("navigator.clipboard.writeText", Value ?? ""); [Inject] private IJSRuntime Js { get; set; } = default!; }

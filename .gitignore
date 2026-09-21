@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+.env
+src/LidarrLens.Web/appsettings.Local.json
+*.db
+*.db-shm
+*.db-wal
+reports/
+data/
