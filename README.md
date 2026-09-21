@@ -15,6 +15,8 @@ docker compose up --build
 4. Open http://localhost:8080.
 5. Start a scan from the dashboard.
 
+Use the Artists page to control scan scope. The first artist sync selects all artists currently in Lidarr. Artists added later are shown as untracked until selected. Only selected artists with a MusicBrainz ID are scanned, so untracking inactive artists prevents their per-artist Lidarr, MusicBrainz, and Deezer requests on future manual or scheduled scans. Existing findings for untracked artists are preserved.
+
 Deezer requires no API key. It is used as optional evidence and discovery data. If it is unavailable, MusicBrainz/Lidarr scanning still works.
 
 MusicBrainz scans default to high-level mode (`MUSICBRAINZ_SCAN_MODE=high-level`), which fetches release groups and assumes a matched group's tracklist is acceptable. This avoids the per-group `/release` requests used for track, recording, barcode, and edition checks. Set `MUSICBRAINZ_SCAN_MODE=detailed` when those checks are needed.

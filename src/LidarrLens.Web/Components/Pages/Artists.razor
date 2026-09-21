@@ -1,0 +1,136 @@
+@page "/artists"
+@inject IArtistTrackingService Tracking
+@rendermode InteractiveServer
+
+<PageTitle>Artists · LidarrLens</PageTitle>
+<div class="page-head compact">
+    <div>
+        <p class="eyebrow">Request control</p>
+        <h1>Choose which artists to track.</h1>
+        <p class="lede">Only selected artists are included in manual and scheduled scans. New Lidarr artists start untracked.</p>
+    </div>
+    <button class="button" @onclick="Refresh" disabled="@busy">@(busy ? "Refreshing…" : "Refresh from Lidarr")</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="notice">@message</div>
+}
+
+<div class="panel">
+    <div class="artist-toolbar">
+        <input placeholder="Search artists" @bind="query" @bind:event="oninput" />
+        <span class="artist-count">@artists.Count(x => x.IsTracked) of @artists.Count tracked</span>
+    </div>
+    <div class="artist-actions">
+        <button class="button" @onclick="() => SetVisible(true)" disabled="@(!filteredArtists.Any())">Track visible</button>
+        <button class="button" @onclick="() => SetVisible(false)" disabled="@(!filteredArtists.Any())">Untrack visible</button>
+        <button class="primary" @onclick="Save" disabled="@(!dirty || busy)">@(busy ? "Saving…" : "Save tracking")</button>
+    </div>
+
+    @if (!artists.Any())
+    {
+        <div class="empty">No artists were returned by Lidarr.</div>
+    }
+    else if (!filteredArtists.Any())
+    {
+        <div class="empty">No artists match “@query”.</div>
+    }
+    else
+    {
+        <div class="artist-list">
+            @foreach (var item in filteredArtists)
+            {
+                <label class="artist-row">
+                    <input type="checkbox" checked="@item.IsTracked" @onchange="eventArgs => Toggle(item, eventArgs)" />
+                    <span class="artist-name">@item.Artist.Name</span>
+                    @if (string.IsNullOrWhiteSpace(item.Artist.MusicBrainzId))
+                    {
+                        <span class="badge badge-warning">No MusicBrainz ID</span>
+                    }
+                    else
+                    {
+                        <span class="artist-id">@item.Artist.MusicBrainzId</span>
+                    }
+                </label>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<ArtistTracking> artists = [];
+    private string? query;
+    private string? message;
+    private bool busy;
+    private bool dirty;
+
+    private IEnumerable<ArtistTracking> filteredArtists => artists
+        .Where(x => string.IsNullOrWhiteSpace(query) || x.Artist.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(x => x.Artist.Name, StringComparer.OrdinalIgnoreCase);
+
+    protected override Task OnInitializedAsync() => Refresh();
+
+    private async Task Refresh()
+    {
+        if (dirty)
+        {
+            message = "Save your tracking changes before refreshing from Lidarr.";
+            return;
+        }
+
+        busy = true;
+        message = null;
+        try
+        {
+            artists = (await Tracking.SyncAsync(CancellationToken.None)).ToList();
+        }
+        catch (Exception ex)
+        {
+            message = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private void Toggle(ArtistTracking item, ChangeEventArgs eventArgs)
+    {
+        var tracked = eventArgs.Value is bool value && value;
+        var index = artists.FindIndex(x => x.Artist.Id == item.Artist.Id);
+        if (index < 0) return;
+        artists[index] = item with { IsTracked = tracked };
+        dirty = true;
+        message = null;
+    }
+
+    private void SetVisible(bool tracked)
+    {
+        var visibleIds = filteredArtists.Select(x => x.Artist.Id).ToHashSet();
+        for (var index = 0; index < artists.Count; index++)
+            if (visibleIds.Contains(artists[index].Artist.Id)) artists[index] = artists[index] with { IsTracked = tracked };
+        dirty = true;
+        message = null;
+    }
+
+    private async Task Save()
+    {
+        busy = true;
+        message = null;
+        try
+        {
+            await Tracking.SaveAsync(artists.ToDictionary(x => x.Artist.Id, x => x.IsTracked), CancellationToken.None);
+            dirty = false;
+            message = "Artist tracking saved.";
+        }
+        catch (Exception ex)
+        {
+            message = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

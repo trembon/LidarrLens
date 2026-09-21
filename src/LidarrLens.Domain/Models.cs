@@ -122,6 +122,14 @@ public interface ILidarrClient
 
 public sealed record LidarrArtist(int Id, string Name, string? MusicBrainzId, string? ForeignArtistId);
 
+public sealed record ArtistTracking(LidarrArtist Artist, bool IsTracked, DateTimeOffset LastSeenAt);
+
+public interface IArtistTrackingService
+{
+    Task<IReadOnlyList<ArtistTracking>> SyncAsync(CancellationToken cancellationToken);
+    Task SaveAsync(IReadOnlyDictionary<int, bool> selections, CancellationToken cancellationToken);
+}
+
 public interface IMusicBrainzClient
 {
     Task<IReadOnlyList<MusicBrainzReleaseGroupSnapshot>> GetReleaseGroupsAsync(string artistId, CancellationToken cancellationToken);
@@ -162,11 +170,13 @@ public interface IResponseCache
 public interface ILidarrLensStore : IResponseCache
 {
     Task InitializeAsync(CancellationToken cancellationToken);
-    Task SaveScanAsync(ScanRun scan, IReadOnlyList<AuditFinding> findings, CancellationToken cancellationToken);
+    Task SaveScanAsync(ScanRun scan, IReadOnlyList<AuditFinding> findings, IReadOnlySet<string> scannedArtistMusicBrainzIds, CancellationToken cancellationToken);
     Task<ScanRun?> GetScanAsync(string id, CancellationToken cancellationToken);
     Task<IReadOnlyList<ScanRun>> GetScansAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<AuditFinding>> GetFindingsAsync(string? status, string? query, CancellationToken cancellationToken);
     Task<AuditFinding?> GetFindingAsync(string id, CancellationToken cancellationToken);
     Task<bool> UpdateFindingStatusAsync(string id, FindingStatus status, CancellationToken cancellationToken);
     Task<IReadOnlyList<AuditFinding>> GetFindingsForScanAsync(string scanId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ArtistTracking>> SyncArtistTrackingAsync(IReadOnlyList<LidarrArtist> artists, CancellationToken cancellationToken);
+    Task SaveArtistTrackingAsync(IReadOnlyDictionary<int, bool> selections, CancellationToken cancellationToken);
 }

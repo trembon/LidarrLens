@@ -24,6 +24,7 @@ builder.Services.AddSingleton<ILidarrLensStore>(_ => new SqliteStore(dataDirecto
 builder.Services.AddSingleton<ILidarrClient>(sp => new LidarrClient(sp.GetRequiredService<IHttpClientFactory>().CreateClient("lidarr"), lidarrApiKey));
 builder.Services.AddSingleton<IMusicBrainzClient>(sp => new MusicBrainzClient(sp.GetRequiredService<IHttpClientFactory>().CreateClient("external"), sp.GetRequiredService<ILidarrLensStore>(), musicBrainzUserAgent, includeMusicBrainzReleaseDetails));
 builder.Services.AddSingleton<IMetadataSourceAdapter>(sp => new DeezerAdapter(sp.GetRequiredService<IHttpClientFactory>().CreateClient("external"), sp.GetRequiredService<ILidarrLensStore>()));
+builder.Services.AddSingleton<IArtistTrackingService, ArtistTrackingService>();
 builder.Services.AddSingleton<IMatchingEngine, MatchingEngine>();
 builder.Services.AddSingleton<IScanService, ScanService>();
 builder.Services.AddSingleton<IReportExporter, ReportExporter>();

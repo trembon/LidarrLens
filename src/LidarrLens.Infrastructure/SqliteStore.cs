@@ -19,11 +19,13 @@ public sealed class SqliteStore(string dataDirectory) : ILidarrLensStore
             CREATE INDEX IF NOT EXISTS ix_findings_status ON findings(status);
             CREATE INDEX IF NOT EXISTS ix_findings_fingerprint ON findings(fingerprint);
             CREATE TABLE IF NOT EXISTS response_cache (provider TEXT NOT NULL, cache_key TEXT NOT NULL, expires_at TEXT NOT NULL, response TEXT NOT NULL, PRIMARY KEY(provider, cache_key));
+            CREATE TABLE IF NOT EXISTS artist_tracking (lidarr_id INTEGER PRIMARY KEY, name TEXT NOT NULL, musicbrainz_id TEXT NULL, foreign_artist_id TEXT NULL, is_tracked INTEGER NOT NULL, last_seen_at TEXT NOT NULL);
+            CREATE INDEX IF NOT EXISTS ix_artist_tracking_last_seen ON artist_tracking(last_seen_at);
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public async Task SaveScanAsync(ScanRun scan, IReadOnlyList<AuditFinding> findings, CancellationToken cancellationToken)
+    public async Task SaveScanAsync(ScanRun scan, IReadOnlyList<AuditFinding> findings, IReadOnlySet<string> scannedArtistMusicBrainzIds, CancellationToken cancellationToken)
     {
         await using var connection = await OpenAsync(cancellationToken);
         await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
@@ -50,7 +52,7 @@ public sealed class SqliteStore(string dataDirectory) : ILidarrLensStore
             var old = connection.CreateCommand(); old.Transaction = transaction; old.CommandText = "SELECT id,payload FROM findings WHERE scan_id<>$scan AND status IN ('Pending','Accepted')"; old.Parameters.AddWithValue("$scan", scan.Id);
             var stale = new List<AuditFinding>();
             await using (var reader = await old.ExecuteReaderAsync(cancellationToken))
-                while (await reader.ReadAsync(cancellationToken)) { var item = JsonSerializer.Deserialize<AuditFinding>(reader.GetString(1)); if (item is not null && !fingerprints.Contains(item.Fingerprint)) stale.Add(item); }
+                while (await reader.ReadAsync(cancellationToken)) { var item = JsonSerializer.Deserialize<AuditFinding>(reader.GetString(1)); if (item is not null && scannedArtistMusicBrainzIds.Contains(item.ArtistMusicBrainzId) && !fingerprints.Contains(item.Fingerprint)) stale.Add(item); }
             foreach (var item in stale)
             {
                 var resolved = item with { Status = FindingStatus.Resolved, UpdatedAt = DateTimeOffset.UtcNow };
@@ -98,6 +100,79 @@ public sealed class SqliteStore(string dataDirectory) : ILidarrLensStore
     public async Task<IReadOnlyList<AuditFinding>> GetFindingsForScanAsync(string scanId, CancellationToken cancellationToken)
     {
         await using var connection = await OpenAsync(cancellationToken); var command = connection.CreateCommand(); command.CommandText = "SELECT payload FROM findings WHERE scan_id=$scan"; command.Parameters.AddWithValue("$scan", scanId); await using var reader = await command.ExecuteReaderAsync(cancellationToken); var list = new List<AuditFinding>(); while (await reader.ReadAsync(cancellationToken)) { var item = JsonSerializer.Deserialize<AuditFinding>(reader.GetString(0)); if (item is not null) list.Add(item); } return list;
+    }
+
+    public async Task<IReadOnlyList<ArtistTracking>> SyncArtistTrackingAsync(IReadOnlyList<LidarrArtist> artists, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        var countCommand = connection.CreateCommand();
+        countCommand.Transaction = transaction;
+        countCommand.CommandText = "SELECT COUNT(*) FROM artist_tracking";
+        var isFirstSync = Convert.ToInt64(await countCommand.ExecuteScalarAsync(cancellationToken)) == 0;
+        var seenAt = DateTimeOffset.UtcNow.ToString("O");
+
+        foreach (var artist in artists)
+        {
+            var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                INSERT INTO artist_tracking(lidarr_id,name,musicbrainz_id,foreign_artist_id,is_tracked,last_seen_at)
+                VALUES ($id,$name,$mbid,$foreign,$tracked,$seen)
+                ON CONFLICT(lidarr_id) DO UPDATE SET
+                    name=excluded.name,
+                    musicbrainz_id=excluded.musicbrainz_id,
+                    foreign_artist_id=excluded.foreign_artist_id,
+                    last_seen_at=excluded.last_seen_at
+                """;
+            command.Parameters.AddWithValue("$id", artist.Id);
+            command.Parameters.AddWithValue("$name", artist.Name);
+            command.Parameters.AddWithValue("$mbid", (object?)artist.MusicBrainzId ?? DBNull.Value);
+            command.Parameters.AddWithValue("$foreign", (object?)artist.ForeignArtistId ?? DBNull.Value);
+            command.Parameters.AddWithValue("$tracked", isFirstSync ? 1 : 0);
+            command.Parameters.AddWithValue("$seen", seenAt);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        var result = new List<ArtistTracking>();
+        if (artists.Count > 0)
+        {
+            var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            var placeholders = new List<string>();
+            for (var index = 0; index < artists.Count; index++)
+            {
+                var parameter = $"$id{index}";
+                placeholders.Add(parameter);
+                command.Parameters.AddWithValue(parameter, artists[index].Id);
+            }
+            command.CommandText = $"SELECT lidarr_id,name,musicbrainz_id,foreign_artist_id,is_tracked,last_seen_at FROM artist_tracking WHERE lidarr_id IN ({string.Join(",", placeholders)}) ORDER BY name COLLATE NOCASE";
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var musicBrainzId = reader.IsDBNull(2) ? null : reader.GetString(2);
+                var foreignArtistId = reader.IsDBNull(3) ? null : reader.GetString(3);
+                result.Add(new ArtistTracking(new LidarrArtist(reader.GetInt32(0), reader.GetString(1), musicBrainzId, foreignArtistId), reader.GetInt32(4) == 1, DateTimeOffset.Parse(reader.GetString(5))));
+            }
+        }
+        await transaction.CommitAsync(cancellationToken);
+        return result;
+    }
+
+    public async Task SaveArtistTrackingAsync(IReadOnlyDictionary<int, bool> selections, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        foreach (var selection in selections)
+        {
+            var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = "UPDATE artist_tracking SET is_tracked=$tracked WHERE lidarr_id=$id";
+            command.Parameters.AddWithValue("$tracked", selection.Value ? 1 : 0);
+            command.Parameters.AddWithValue("$id", selection.Key);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task<string?> GetAsync(string provider, string cacheKey, CancellationToken cancellationToken)
