@@ -6,13 +6,24 @@ public static class MusicBrainzLinkBuilder
 {
     public static IReadOnlyList<MusicBrainzLink> Build(AuditFinding finding)
     {
-        if (finding.MusicBrainzLinks is { Count: > 0 }) return finding.MusicBrainzLinks;
+        if (finding.MusicBrainzLinks is { Count: > 0 })
+        {
+            var addReleaseUrl = BuildAddReleaseUrl(finding.ArtistMusicBrainzId);
+            return finding.MusicBrainzLinks
+                .Select(link => string.Equals(link.Label, "Add release", StringComparison.OrdinalIgnoreCase)
+                    ? new MusicBrainzLink(link.Label, addReleaseUrl)
+                    : link)
+                .ToList();
+        }
 
         return Build(
             new ArtistSnapshot(finding.ArtistName, finding.ArtistMusicBrainzId, finding.ArtistMusicBrainzUrl),
             finding.ExistingMusicBrainzEntities,
             finding.CopyReady);
     }
+
+    public static string BuildAddReleaseUrl(string artistMusicBrainzId) =>
+        $"https://musicbrainz.org/release/add?artist={Uri.EscapeDataString(artistMusicBrainzId)}";
 
     public static IReadOnlyList<MusicBrainzLink> Build(ArtistSnapshot artist, IEnumerable<string> existing, CopyReadyRelease? copy)
     {
@@ -30,10 +41,16 @@ public static class MusicBrainzLinkBuilder
             links.Add(new MusicBrainzLink(label, url));
         }
 
-        if (!string.IsNullOrWhiteSpace(copy?.MusicBrainzEditorUrl) && seen.Add(copy.MusicBrainzEditorUrl))
+        if (!string.IsNullOrWhiteSpace(copy?.MusicBrainzEditorUrl))
         {
-            var label = copy.MusicBrainzEditorUrl.Contains("/edit", StringComparison.OrdinalIgnoreCase) ? "Edit release" : "Add release";
-            links.Add(new MusicBrainzLink(label, copy.MusicBrainzEditorUrl));
+            var editorUrl = copy.MusicBrainzEditorUrl.Contains("/edit", StringComparison.OrdinalIgnoreCase)
+                ? copy.MusicBrainzEditorUrl
+                : BuildAddReleaseUrl(artist.MusicBrainzId);
+            if (seen.Add(editorUrl))
+            {
+                var label = editorUrl.Contains("/edit", StringComparison.OrdinalIgnoreCase) ? "Edit release" : "Add release";
+                links.Add(new MusicBrainzLink(label, editorUrl));
+            }
         }
 
         return links;

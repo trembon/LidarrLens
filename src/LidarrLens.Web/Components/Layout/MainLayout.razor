@@ -1,16 +1,22 @@
 @inherits LayoutComponentBase
 
 <div class="shell">
-    <aside class="sidebar">
-        <a class="brand" href="/"><span class="brand-mark">L</span><span>LidarrLens</span></a>
-        <nav>
-            <NavLink href="/" Match="NavLinkMatch.All">Dashboard</NavLink>
-            <NavLink href="/artists">Artists</NavLink>
-            <NavLink href="/queue">Work queue</NavLink>
-            <NavLink href="/scans">Scan history</NavLink>
-            <NavLink href="/settings">Settings</NavLink>
-        </nav>
-        <p class="sidebar-note">Read-only audit tool.<br />MusicBrainz edits remain manual.</p>
-    </aside>
-    <main class="content">@Body</main>
+    <header class="topbar">
+        <div class="topbar-inner">
+            <a class="brand" href="/"><span class="brand-mark">L</span><span>LidarrLens</span></a>
+            <nav class="topbar-nav" aria-label="Primary navigation">
+                <NavLink href="/" Match="NavLinkMatch.All">Dashboard</NavLink>
+                <NavLink href="/artists">Artists</NavLink>
+                <NavLink href="/queue">Work queue</NavLink>
+                <NavLink href="/scans">Scan history</NavLink>
+                <NavLink href="/settings">Settings</NavLink>
+            </nav>
+            <p class="topbar-note">Read-only audit tool<span aria-hidden="true"> · </span><span>MusicBrainz edits remain manual</span></p>
+        </div>
+    </header>
+    <main class="content">
+        <div class="content-inner">
+            @Body
+        </div>
+    </main>
 </div>

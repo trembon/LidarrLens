@@ -13,11 +13,15 @@ var lidarrUrl = configuration["LIDARR_URL"] ?? "http://localhost:8686";
 var lidarrApiKey = configuration["LIDARR_API_KEY"] ?? string.Empty;
 var musicBrainzUserAgent = configuration["MUSICBRAINZ_USER_AGENT"] ?? "LidarrLens/0.1.0";
 var includeMusicBrainzReleaseDetails = string.Equals(configuration["MUSICBRAINZ_SCAN_MODE"], "detailed", StringComparison.OrdinalIgnoreCase);
+var musicBrainzTaskView = string.Equals(configuration["MUSICBRAINZ_TASK_VIEW"], "external", StringComparison.OrdinalIgnoreCase)
+    ? "external"
+    : "iframe";
 
 builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(options => options.SingleLine = true);
 builder.Services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataDirectory, "keys")));
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+builder.Services.AddSingleton(new MusicBrainzTaskViewOptions(musicBrainzTaskView));
 builder.Services.AddHttpClient("lidarr", client => client.BaseAddress = new Uri(lidarrUrl));
 builder.Services.AddHttpClient("external");
 builder.Services.AddSingleton<ILidarrLensStore>(_ => new SqliteStore(dataDirectory));

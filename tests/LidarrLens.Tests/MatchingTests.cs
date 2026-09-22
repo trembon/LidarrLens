@@ -103,7 +103,18 @@ public sealed class MatchingTests
 
         var finding = Assert.Single(new MatchingEngine().Compare(artist, [], [], [source], "scan"));
 
-        Assert.Contains(new MusicBrainzLink("Add release", "https://musicbrainz.org/release/add"), finding.MusicBrainzLinks!);
+        Assert.Contains(new MusicBrainzLink("Add release", "https://musicbrainz.org/release/add?artist=artist-id"), finding.MusicBrainzLinks!);
+    }
+
+    [Fact]
+    public void Add_release_link_encodes_the_artist_mbid()
+    {
+        var artist = new ArtistSnapshot("Example", "artist id/1", "https://musicbrainz.org/artist/artist%20id%2F1");
+        var source = new SourceRelease("Deezer", "dz-id", "Album", "https://deezer.com/album/dz-id", "dz-artist", null, null, null, null, null, "Digital", []);
+
+        var finding = Assert.Single(new MatchingEngine().Compare(artist, [], [], [source], "scan"));
+
+        Assert.Contains(new MusicBrainzLink("Add release", "https://musicbrainz.org/release/add?artist=artist%20id%2F1"), finding.MusicBrainzLinks!);
     }
 
     [Fact]
@@ -117,6 +128,41 @@ public sealed class MatchingTests
 
         Assert.Contains(new MusicBrainzLink("Artist", artist.MusicBrainzUrl), links);
         Assert.Contains(new MusicBrainzLink("Release group", group.Url), links);
-        Assert.Contains(new MusicBrainzLink("Add release", "https://musicbrainz.org/release/add"), links);
+        Assert.Contains(new MusicBrainzLink("Add release", "https://musicbrainz.org/release/add?artist=artist-id"), links);
+    }
+
+    [Fact]
+    public void Persisted_legacy_add_release_link_is_normalized_for_the_artist()
+    {
+        var artist = new ArtistSnapshot("Example", "artist-id", "https://musicbrainz.org/artist/artist-id");
+        var group = new MusicBrainzReleaseGroupSnapshot("group-id", "Album", "Album", [], null, [], "https://musicbrainz.org/release-group/group-id");
+        var finding = Assert.Single(new MatchingEngine().Compare(artist, [], [group], [], "scan")) with
+        {
+            MusicBrainzLinks = [new MusicBrainzLink("Add release", "https://musicbrainz.org/release/add")]
+        };
+
+        var links = MusicBrainzLinkBuilder.Build(finding);
+
+        Assert.Contains(new MusicBrainzLink("Add release", "https://musicbrainz.org/release/add?artist=artist-id"), links);
+    }
+
+    [Fact]
+    public void Legacy_copy_ready_add_release_link_is_normalized_when_shortcuts_are_missing()
+    {
+        var artist = new ArtistSnapshot("Example", "artist-id", "https://musicbrainz.org/artist/artist-id");
+        var source = new SourceRelease("Deezer", "dz-id", "Album", "https://deezer.com/album/dz-id", "dz-artist", null, null, null, null, null, "Digital", []);
+        var original = Assert.Single(new MatchingEngine().Compare(artist, [], [], [source], "scan"));
+        var finding = original with
+        {
+            MusicBrainzLinks = null,
+            CopyReady = original.CopyReady! with
+            {
+                MusicBrainzEditorUrl = "https://musicbrainz.org/release/add"
+            }
+        };
+
+        var links = MusicBrainzLinkBuilder.Build(finding);
+
+        Assert.Contains(new MusicBrainzLink("Add release", "https://musicbrainz.org/release/add?artist=artist-id"), links);
     }
 }

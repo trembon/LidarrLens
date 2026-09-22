@@ -86,7 +86,7 @@ public sealed class MatchingEngine : IMatchingEngine
         var title = release?.Title ?? source?.Title ?? group?.Title ?? "";
         var tracks = (release?.Tracks.Select((x, i) => $"{i + 1}. {x.Title}{(x.DurationMilliseconds.HasValue ? $" ({TimeSpan.FromMilliseconds(x.DurationMilliseconds.Value):m\\:ss})" : "")}") ?? source?.Tracks.Select((x, i) => $"{i + 1}. {x.Title}{(x.DurationSeconds.HasValue ? $" ({TimeSpan.FromSeconds(x.DurationSeconds.Value):m\\:ss})" : "")}") ?? []).ToList();
         var urls = new[] { source?.Url, release is null ? null : $"https://musicbrainz.org/release/{release.Id}", group?.Url }.Where(x => !string.IsNullOrWhiteSpace(x)).Cast<string>().Distinct().ToList();
-        var editor = release is null ? "https://musicbrainz.org/release/add" : $"https://musicbrainz.org/release/{release.Id}/edit";
+        var editor = release is null ? MusicBrainzLinkBuilder.BuildAddReleaseUrl(artist.MusicBrainzId) : $"https://musicbrainz.org/release/{release.Id}/edit";
         var note = $"LidarrLens audit for {artist.Name} / {title}. Evidence: {string.Join(", ", urls)}. Please verify all fields manually before submitting.";
         return new CopyReadyRelease(title, group?.PrimaryType ?? "album", (release?.Date ?? source?.ReleaseDate)?.ToString("yyyy-MM-dd"), release?.Country ?? source?.Country, release?.Label ?? source?.Label, release?.CatalogNumber ?? source?.CatalogNumber, release?.Barcode ?? source?.Barcode, release?.Format ?? source?.Format, null, urls, tracks, note, editor, source?.ArtworkUrl);
     }

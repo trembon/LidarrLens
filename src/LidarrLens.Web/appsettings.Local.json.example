@@ -1,5 +1,6 @@
 {
   "LIDARR_API_KEY": "paste-your-lidarr-api-key-here",
   "MUSICBRAINZ_USER_AGENT": "LidarrLens/0.1.0 (your-email@example.com)",
-  "MUSICBRAINZ_SCAN_MODE": "high-level"
+  "MUSICBRAINZ_SCAN_MODE": "high-level",
+  "MUSICBRAINZ_TASK_VIEW": "iframe"
 }

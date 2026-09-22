@@ -65,6 +65,8 @@ Set `SCAN_INTERVAL_MINUTES` to a positive number to enable optional recurring sc
 
 `MUSICBRAINZ_SCAN_MODE` accepts `high-level` (the default) or `detailed`.
 
+`MUSICBRAINZ_TASK_VIEW` accepts `iframe` (the default) to show MusicBrainz inside finding pages, or `external` to open the selected MusicBrainz page in a separate browser tab. Use `external` if MusicBrainz or your browser prevents embedded pages from rendering.
+
 ## Statuses
 
 `pending`, `accepted`, `rejected`, `submitted`, `ignored`, `waiting`, and `resolved`. `waiting` hides an item from the default work queue while MusicBrainz or another service catches up; it remains available through the status filter. `ignored` means “won’t do.” `resolved` is assigned when a later scan finds the corresponding MusicBrainz entity.

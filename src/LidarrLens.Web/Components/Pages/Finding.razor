@@ -1,6 +1,7 @@
 @page "/findings/{Id}"
 @inject IScanService Scans
 @inject IJSRuntime Js
+@inject MusicBrainzTaskViewOptions TaskViewOptions
 @rendermode InteractiveServer
 
 <PageTitle>Finding · LidarrLens</PageTitle>
@@ -10,84 +11,156 @@
 }
 else
 {
-    <a href="/queue">← Back to queue</a>
-    <div class="page-head compact">
-        <div>
-            <p class="eyebrow">@finding.Type · @finding.Confidence confidence</p>
-            <h1>@(finding.CopyReady?.Title ?? finding.Type.ToString())</h1>
-            <p class="lede">@finding.ArtistName · @finding.SourceName · <span class="badge @finding.Status.ToString().ToLowerInvariant()">@finding.Status</span></p>
-        </div>
-        <div class="queue-actions">
-            @if (finding.Status == FindingStatus.Waiting)
-            {
-                <button @onclick="() => SetStatus(FindingStatus.Pending)">Return to pending</button>
-            }
-            else
-            {
-                <button @onclick="() => SetStatus(FindingStatus.Waiting)">Mark waiting</button>
-            }
-        </div>
-    </div>
-    <div class="detail-grid">
-        <section class="panel">
-            <h2>Suggested action</h2>
-            <p>@finding.SuggestedAction</p>
-            <h2>MusicBrainz shortcuts</h2>
-            <div class="link-list">
-                @foreach (var link in MusicBrainzLinkBuilder.Build(finding))
+    <div class="finding-page">
+        <div class="finding-header">
+            <div class="finding-heading">
+                <a class="back-link" href="/queue">← Back to queue</a>
+                <p class="eyebrow">@finding.Type · @finding.Confidence confidence</p>
+                <h1>@(finding.CopyReady?.Title ?? finding.Type.ToString())</h1>
+                <p class="lede">@finding.ArtistName · @finding.SourceName · <span class="badge @finding.Status.ToString().ToLowerInvariant()">@finding.Status</span></p>
+            </div>
+            <div class="queue-actions">
+                @if (finding.Status == FindingStatus.Waiting)
                 {
-                    <a href="@link.Url" target="_blank" rel="noopener noreferrer">@link.Label</a>
+                    <button @onclick="() => SetStatus(FindingStatus.Pending)">Return to pending</button>
+                }
+                else
+                {
+                    <button @onclick="() => SetStatus(FindingStatus.Waiting)">Mark waiting</button>
                 }
             </div>
-            <h2>Evidence</h2>
-            <ul>
-                @foreach (var item in finding.Evidence)
+        </div>
+
+        <div class="finding-workspace">
+            <section class="musicbrainz-workspace" aria-label="MusicBrainz workspace">
+                <div class="workspace-toolbar">
+                    <div>
+                        <p class="eyebrow">MusicBrainz workspace</p>
+                        <h2>@(TaskViewOptions.UseIframe ? "Review and edit in context" : "Open MusicBrainz directly")</h2>
+                    </div>
+                    @if (selectedMusicBrainzUrl is not null)
+                    {
+                        <a class="button" href="@selectedMusicBrainzUrl" target="_blank" rel="noopener noreferrer">Open externally ↗</a>
+                    }
+                </div>
+
+                @if (musicBrainzLinks.Count > 0)
                 {
-                    <li>@item</li>
+                    <div class="workspace-links" aria-label="MusicBrainz shortcuts">
+                        @foreach (var link in musicBrainzLinks)
+                        {
+                            <button class="workspace-link @(link.Url == selectedMusicBrainzUrl ? "active" : "")" @onclick="() => SelectMusicBrainzUrl(link.Url)">@link.Label</button>
+                        }
+                    </div>
                 }
-            </ul>
-            @if (finding.SourceUrl is not null)
-            {
-                <p><a href="@finding.SourceUrl" target="_blank" rel="noopener noreferrer">Open source evidence</a></p>
-            }
-        </section>
-        <section class="panel copy-panel">
-            <h2>Copy-ready data</h2>
-            @if (finding.CopyReady is null)
-            {
-                <p>No release payload was generated.</p>
-            }
-            else
-            {
-                <CopyField Label="Release title" Value="@finding.CopyReady.Title" />
-                <CopyField Label="Release group type" Value="@finding.CopyReady.ReleaseGroupType" />
-                <CopyField Label="Release date" Value="@finding.CopyReady.ReleaseDate" />
-                <CopyField Label="Country" Value="@finding.CopyReady.Country" />
-                <CopyField Label="Label" Value="@finding.CopyReady.Label" />
-                <CopyField Label="Catalog number" Value="@finding.CopyReady.CatalogNumber" />
-                <CopyField Label="Barcode" Value="@finding.CopyReady.Barcode" />
-                <CopyField Label="Format" Value="@finding.CopyReady.Format" />
-                <CopyField Label="Artwork URL" Value="@finding.CopyReady.ArtworkUrl" />
-                @if (!string.IsNullOrWhiteSpace(finding.CopyReady.ArtworkUrl))
+
+                @if (selectedMusicBrainzUrl is null)
                 {
-                    <p><a href="@finding.CopyReady.ArtworkUrl" target="_blank" rel="noopener noreferrer">Open artwork</a></p>
-                    <p class="field-note">Download and inspect this image, then upload it manually through the matching MusicBrainz release’s Cover Art tab.</p>
+                    <div class="workspace-empty">
+                        <h3>No MusicBrainz page is available</h3>
+                        <p>This finding does not contain a valid MusicBrainz URL to open.</p>
+                    </div>
                 }
-                <CopyField Label="Tracklist" Value="@string.Join("\n", finding.CopyReady.Tracklist)" />
-                <CopyField Label="Edit note" Value="@finding.CopyReady.EditNote" />
-                <button class="primary full" @onclick="CopyAll">Copy all release data</button>
-            }
-        </section>
+                else if (TaskViewOptions.UseIframe)
+                {
+                    <div class="iframe-shell">
+                        <iframe src="@selectedMusicBrainzUrl" title="MusicBrainz workspace" loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+                    </div>
+                    <p class="workspace-help">If MusicBrainz does not render in the embedded view, use <a href="@selectedMusicBrainzUrl" target="_blank" rel="noopener noreferrer">Open externally</a>.</p>
+                }
+                else
+                {
+                    <div class="workspace-empty">
+                        <h3>MusicBrainz is configured to open externally</h3>
+                        <p>Use the button above to open the selected page in a separate browser tab while keeping this finding available here.</p>
+                    </div>
+                }
+            </section>
+
+            <aside class="finding-context" aria-label="Finding context">
+                <section class="context-section">
+                    <h2>Suggested action</h2>
+                    <p>@finding.SuggestedAction</p>
+                </section>
+                <section class="context-section">
+                    <h2>Evidence</h2>
+                    <ul>
+                        @foreach (var item in finding.Evidence)
+                        {
+                            <li>@item</li>
+                        }
+                    </ul>
+                    @if (finding.SourceUrl is not null)
+                    {
+                        <p><a href="@finding.SourceUrl" target="_blank" rel="noopener noreferrer">Open source evidence ↗</a></p>
+                    }
+                </section>
+                <section class="context-section copy-panel">
+                    <h2>Copy-ready data</h2>
+                    @if (finding.CopyReady is null)
+                    {
+                        <p>No release payload was generated.</p>
+                    }
+                    else
+                    {
+                        <CopyField Label="Release title" Value="@finding.CopyReady.Title" />
+                        <CopyField Label="Release group type" Value="@finding.CopyReady.ReleaseGroupType" />
+                        <CopyField Label="Release date" Value="@finding.CopyReady.ReleaseDate" />
+                        <CopyField Label="Country" Value="@finding.CopyReady.Country" />
+                        <CopyField Label="Label" Value="@finding.CopyReady.Label" />
+                        <CopyField Label="Catalog number" Value="@finding.CopyReady.CatalogNumber" />
+                        <CopyField Label="Barcode" Value="@finding.CopyReady.Barcode" />
+                        <CopyField Label="Format" Value="@finding.CopyReady.Format" />
+                        <CopyField Label="Artwork URL" Value="@finding.CopyReady.ArtworkUrl" />
+                        @if (!string.IsNullOrWhiteSpace(finding.CopyReady.ArtworkUrl))
+                        {
+                            <p><a href="@finding.CopyReady.ArtworkUrl" target="_blank" rel="noopener noreferrer">Open artwork ↗</a></p>
+                            <p class="field-note">Download and inspect this image, then upload it manually through the matching MusicBrainz release’s Cover Art tab.</p>
+                        }
+                        <CopyField Label="Tracklist" Value="@string.Join("\n", finding.CopyReady.Tracklist)" />
+                        <CopyField Label="Edit note" Value="@finding.CopyReady.EditNote" />
+                        <button class="primary full" @onclick="CopyAll">Copy all release data</button>
+                    }
+                </section>
+            </aside>
+        </div>
     </div>
 }
 
 @code {
     [Parameter] public string Id { get; set; } = "";
     private AuditFinding? finding;
+    private IReadOnlyList<MusicBrainzLink> musicBrainzLinks = [];
+    private string? selectedMusicBrainzUrl;
 
     protected override async Task OnInitializedAsync() => await Load();
 
-    private async Task Load() => finding = (await Scans.GetFindingsAsync(null, null, CancellationToken.None)).FirstOrDefault(x => x.Id == Id);
+    private async Task Load()
+    {
+        finding = (await Scans.GetFindingsAsync(null, null, CancellationToken.None)).FirstOrDefault(x => x.Id == Id);
+        if (finding is null) return;
+
+        musicBrainzLinks = MusicBrainzLinkBuilder.Build(finding)
+            .Where(link => IsMusicBrainzUrl(link.Url))
+            .ToList();
+        selectedMusicBrainzUrl = musicBrainzLinks
+            .FirstOrDefault(link => string.Equals(link.Label, "Edit release", StringComparison.OrdinalIgnoreCase))?.Url
+            ?? musicBrainzLinks.FirstOrDefault(link => string.Equals(link.Label, "Add release", StringComparison.OrdinalIgnoreCase))?.Url
+            ?? musicBrainzLinks.FirstOrDefault()?.Url;
+    }
+
+    private void SelectMusicBrainzUrl(string url)
+    {
+        if (IsMusicBrainzUrl(url)) selectedMusicBrainzUrl = url;
+    }
+
+    private static bool IsMusicBrainzUrl(string value)
+    {
+        return Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            && uri.Scheme == Uri.UriSchemeHttps
+            && (uri.Host.Equals("musicbrainz.org", StringComparison.OrdinalIgnoreCase)
+                || uri.Host.EndsWith(".musicbrainz.org", StringComparison.OrdinalIgnoreCase));
+    }
 
     private async Task SetStatus(FindingStatus status)
     {
